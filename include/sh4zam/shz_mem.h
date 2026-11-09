@@ -387,10 +387,15 @@ SHZ_INLINE void* shz_sq_memcpy32_1_xmtrx(     void* SHZ_RESTRICT dst,
 
 /*! Intrinsic around the SH4 `MOVCA.L` instruction.
 
-    Preallocates the cache-line containing \p src.
+    Preallocates the cache-line containing \p src, setting the valid bit
+    to `1` without reading the line from memory.
 
-    Zero-initializes all 32-bytes within the \p src cache-line,
-    setting the valid bit to `1`.
+    \warning
+    The line is not zero-initialized. `MOVCA.L` stores whatever R0 holds to
+    the 4 bytes at \p src, and on a cache miss the rest of the line is
+    undefined, so write all 32 bytes before reading any of them. The
+    compiler takes the 32 bytes from \p src as written, so \p src should be
+    32-byte aligned.
 */
 SHZ_ACCESS(write_only, 1)
 SHZ_INLINE void shz_dcache_alloc_line(void* src) SHZ_NOEXCEPT;
