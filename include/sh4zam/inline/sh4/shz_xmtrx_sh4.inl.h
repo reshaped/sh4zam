@@ -4504,6 +4504,94 @@ SHZ_FORCE_INLINE shz_vec4_t shz_xmtrx_transform_vec4_sh4(shz_vec4_t vec) SHZ_NOE
     return shz_vec4_init(rx, ry, rz, rw);
 }
 
+/* FTRV dots the vector with XMTRX's rows. The transpose needs its columns,
+   which lie in the back bank where FIPR can't reach them. So each column is
+   copied to the front bank as two register pairs, and FIPR dots it with the
+   vector in FV0. Columns 0 and 1 go to FV4 and FV8, each result landing in
+   its FV's last register. Column 2 then reuses FV4: its first pair loads
+   while column 0's result is still in flight, and that result moves to FR9
+   as part of the pair FR6:FR7 before the second pair overwrites it.
+
+   FV12 is left alone: the ABI makes FR12-FR15 callee-saved, so writing them
+   would cost the caller a save and restore of each.
+
+   Both routines expect FPSCR.SZ and FPSCR.PR clear, as the rest of the
+   library does, and leave them clear. XMTRX is only read. */
+SHZ_FORCE_INLINE shz_vec3_t shz_xmtrx_transform_vec3_transpose_sh4(shz_vec3_t vec) SHZ_NOEXCEPT {
+    register float vx asm("fr0") = vec.x;
+    register float vy asm("fr1") = vec.y;
+    register float vz asm("fr2") = vec.z;
+    register float vw asm("fr3") = 0.0f;
+
+    register float rx asm("fr9");
+    register float ry asm("fr11");
+    register float rz asm("fr7");
+
+    asm volatile(R"(
+        fschg
+        fmov    xd0, dr4
+        fmov    xd2, dr6
+        fmov    xd4, dr8
+        fmov    xd6, dr10
+        fschg
+        fipr    fv0, fv4
+        fipr    fv0, fv8
+        fschg
+        fmov    xd8, dr4
+        fmov    dr6, dr8
+        fmov    xd10, dr6
+        fschg
+        fipr    fv0, fv4
+    )"
+    : "=f" (rx), "=f" (ry), "=f" (rz)
+    : "f" (vx), "f" (vy), "f" (vz), "f" (vw)
+    : "fr4", "fr5", "fr6", "fr8", "fr10");
+
+    return shz_vec3_init(rx, ry, rz);
+}
+
+/* As the 3D routine, then column 3 reuses FV4 once column 2's result has
+   moved to FR8, which column 1 no longer needs. */
+SHZ_FORCE_INLINE shz_vec4_t shz_xmtrx_transform_vec4_transpose_sh4(shz_vec4_t vec) SHZ_NOEXCEPT {
+    register float vx asm("fr0") = vec.x;
+    register float vy asm("fr1") = vec.y;
+    register float vz asm("fr2") = vec.z;
+    register float vw asm("fr3") = vec.w;
+
+    register float rx asm("fr9");
+    register float ry asm("fr11");
+    register float rz asm("fr8");
+    register float rw asm("fr7");
+
+    asm volatile(R"(
+        fschg
+        fmov    xd0, dr4
+        fmov    xd2, dr6
+        fmov    xd4, dr8
+        fmov    xd6, dr10
+        fschg
+        fipr    fv0, fv4
+        fipr    fv0, fv8
+        fschg
+        fmov    xd8, dr4
+        fmov    dr6, dr8
+        fmov    xd10, dr6
+        fschg
+        fipr    fv0, fv4
+        fmov    fr7, fr8
+        fschg
+        fmov    xd12, dr4
+        fmov    xd14, dr6
+        fschg
+        fipr    fv0, fv4
+    )"
+    : "=f" (rx), "=f" (ry), "=f" (rz), "=f" (rw)
+    : "f" (vx), "f" (vy), "f" (vz), "f" (vw)
+    : "fr4", "fr5", "fr6", "fr10");
+
+    return shz_vec4_init(rx, ry, rz, rw);
+}
+
 #endif
 
 //! @}
