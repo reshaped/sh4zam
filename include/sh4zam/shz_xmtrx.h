@@ -796,6 +796,34 @@ SHZ_INLINE shz_vec2_t shz_xmtrx_transform_point2(shz_vec2_t pt) SHZ_NOEXCEPT;
 //! Returns the 3D point that is the result of transforming \p pt by XMTRX.
 SHZ_INLINE shz_vec3_t shz_xmtrx_transform_point3(shz_vec3_t pt) SHZ_NOEXCEPT;
 
+/*! Returns the 4D vector that is the result of transforming \p vec by the transpose of XMTRX.
+
+    Each component of the result is the dot product of \p vec with one
+    column of XMTRX. XMTRX itself is only read, never written.
+
+    \note
+    For a rotation matrix, the transpose is the inverse, so this takes a
+    direction from the space XMTRX transforms into back to the space it
+    transforms from, such as a world-space light into model space.
+
+    \note
+    For batch transforming multiple vectors, take the transpose of XMTRX
+    once with shz_xmtrx_transpose() and use shz_xmtrx_transform_vec4().
+
+    \sa shz_xmtrx_transform_vec4(), shz_xmtrx_transpose(), shz_mat4x4_transform_vec4_transpose()
+*/
+SHZ_INLINE shz_vec4_t shz_xmtrx_transform_vec4_transpose(shz_vec4_t vec) SHZ_NOEXCEPT;
+
+/*! Returns the 3D vector that is the result of transforming \p vec by the transpose of XMTRX.
+
+    Each component of the result is the dot product of \p vec, with a W
+    component of 0, with one of the first three columns of XMTRX. XMTRX
+    itself is only read, never written.
+
+    \sa shz_xmtrx_transform_vec3(), shz_xmtrx_transform_vec4_transpose(), shz_mat4x4_transform_vec3_transpose()
+*/
+SHZ_INLINE shz_vec3_t shz_xmtrx_transform_vec3_transpose(shz_vec3_t vec) SHZ_NOEXCEPT;
+
 //! @}
 
 /*! \name  Setters
