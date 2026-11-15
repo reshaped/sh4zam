@@ -1120,7 +1120,7 @@ SHZ_INLINE void shz_xmtrx_store_transpose_3x4_sh4(shz_mat3x4_t* mat) SHZ_NOEXCEP
         frchg
     )"
     : "=m" (*mat)
-    : [mat] "r" (mat), [scr] "r" (scr));
+    : [mat] "u" (mat), [scr] "r" (scr));
 }
 
 SHZ_INLINE void shz_xmtrx_store_3x3_sh4(shz_mat3x3_t* matrix) SHZ_NOEXCEPT {
@@ -1339,7 +1339,7 @@ SHZ_INLINE void shz_xmtrx_init_upper_triangular_sh4(float col1, shz_vec2_t col2,
         frchg
     )"
     :
-    : [c2] "r" (&col2), [c3] "r" (&col3), [c4] "r" (&col4),
+    : [c2] "u" (&col2), [c3] "u" (&col3), [c4] "u" (&col4),
       [c1] "f" (col1), "m" (col2), "m" (col3), "m" (col4)
     : "fpul");
 }
@@ -1370,7 +1370,7 @@ SHZ_INLINE void shz_xmtrx_init_lower_triangular_sh4(shz_vec4_t col1, shz_vec3_t 
         frchg
     )"
     :
-    : [c1] "r" (&col1), [c2] "r" (&col2), [c3] "r" (&col3),
+    : [c1] "u" (&col1), [c2] "u" (&col2), [c3] "u" (&col3),
       [c4] "f" (col4), "m" (col1), "m" (col2), "m" (col3)
     : "fpul");
 }
@@ -3475,7 +3475,7 @@ SHZ_INLINE void shz_xmtrx_lookat_sh4(shz_vec3_t eye,
         frchg
     )"
     :
-    : [p] "r"(&eye), [t] "r"(&center), [u] "r"(&up),
+    : [p] "u"(&eye), [t] "u"(&center), [u] "u"(&up),
       "m" (eye), "m" (center), "m" (up)
     : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7",
       "fr8", "fr9", "fr10", "fr11", "fr12", "fr13", "fr14", "fr15");
@@ -3517,7 +3517,7 @@ SHZ_INLINE void shz_xmtrx_ortho_sh4(float left, float right, float bottom, float
         frchg
     )"
     :
-    : [s] "r" (&scale), [t] "r" (&trans),
+    : [s] "u" (&scale), [t] "u" (&trans),
           "m"  (scale),     "m" (trans)
     : "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7",
       "fr8", "fr9", "fr10", "fr11", "fr12", "fr13", "fr14", "fr15");
@@ -4540,6 +4540,74 @@ SHZ_FORCE_INLINE shz_vec4_t shz_xmtrx_transform_vec4_sh4(shz_vec4_t vec) SHZ_NOE
 
     asm volatile("ftrv xmtrx, fv8"
         : "+f" (rx), "+f" (ry), "+f" (rz), "+f" (rw));
+
+    return shz_vec4_init(rx, ry, rz, rw);
+}
+
+SHZ_FORCE_INLINE shz_vec3_t shz_xmtrx_transform_vec3_transpose_sh4(shz_vec3_t vec) SHZ_NOEXCEPT {
+    register float vx asm("fr0") = vec.x;
+    register float vy asm("fr1") = vec.y;
+    register float vz asm("fr2") = vec.z;
+    register float vw asm("fr3") = 0.0f;
+
+    register float rx asm("fr9");
+    register float ry asm("fr11");
+    register float rz asm("fr7");
+
+    asm volatile(R"(
+        fschg
+        fmov    xd0, dr4
+        fmov    xd2, dr6
+        fmov    xd4, dr8
+        fipr    fv0, fv4
+        fmov    xd6, dr10
+        fmov    xd8, dr4
+        fipr    fv0, fv8
+        fmov    dr6, dr8
+        fmov    xd10, dr6
+        fschg
+        fipr    fv0, fv4
+    )"
+    : "=f" (rx), "=f" (ry), "=f" (rz)
+    : "f" (vx), "f" (vy), "f" (vz), "f" (vw)
+    : "fr4", "fr5", "fr6", "fr8", "fr10");
+
+    return shz_vec3_init(rx, ry, rz);
+}
+
+SHZ_FORCE_INLINE shz_vec4_t shz_xmtrx_transform_vec4_transpose_sh4(shz_vec4_t vec) SHZ_NOEXCEPT {
+    register float vx asm("fr0") = vec.x;
+    register float vy asm("fr1") = vec.y;
+    register float vz asm("fr2") = vec.z;
+    register float vw asm("fr3") = vec.w;
+
+    register float rx asm("fr9");
+    register float ry asm("fr11");
+    register float rz asm("fr8");
+    register float rw asm("fr7");
+
+    asm volatile(R"(
+        fschg
+        fmov    xd0, dr4
+        fmov    xd2, dr6
+        fmov    xd4, dr8
+        fipr    fv0, fv4
+        fmov    xd6, dr10
+        fmov    xd8, dr4
+        fipr    fv0, fv8
+        fmov    dr6, dr8
+        fmov    xd10, dr6
+        fipr    fv0, fv4
+        fmov    xd12, dr4
+        flds    fr7, fpul
+        fmov    xd14, dr6
+        fschg
+        fsts    fpul, fr8
+        fipr    fv0, fv4
+    )"
+    : "=f" (rx), "=f" (ry), "=f" (rz), "=f" (rw)
+    : "f" (vx), "f" (vy), "f" (vz), "f" (vw)
+    : "fr4", "fr5", "fr6", "fr10", "fpul");
 
     return shz_vec4_init(rx, ry, rz, rw);
 }
